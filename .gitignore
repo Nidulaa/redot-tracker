@@ -1,4 +1,6 @@
 node_modules/
-data/users.json
-data/store.json
+frontend/node_modules/
+frontend/dist/
 .env
+frontend/.env
+frontend/.env.local
