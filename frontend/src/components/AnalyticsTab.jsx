@@ -1,8 +1,23 @@
 import { fmtHrs, companyAllotted, companyUsed } from '../utils.js';
 import { downloadCompanyReport } from '../report.js';
-import { IconDownload } from './Icons.jsx';
+import { IconDownload, IconTrash } from './Icons.jsx';
+import { useConfirm } from './ConfirmDialog.jsx';
+import { useToast } from './Toast.jsx';
 
-export default function AnalyticsTab({ state, year, setYear, expandedCompany, setExpandedCompany }) {
+export default function AnalyticsTab({ state, year, setYear, expandedCompany, setExpandedCompany, onDeleteLog }) {
+  const confirmDialog = useConfirm();
+  const toast = useToast();
+
+  async function deleteLog(l, workerName) {
+    const ok = await confirmDialog({
+      title: 'Delete task',
+      message: `Delete "${l.task || 'this entry'}" (${workerName}, ${l.date})? This can't be undone.`,
+    });
+    if (!ok) return;
+    await onDeleteLog(l.id);
+    toast('Entry removed', 'remove');
+  }
+
   if (state.companies.length === 0) {
     return (
       <div className="panel">
@@ -65,16 +80,18 @@ export default function AnalyticsTab({ state, year, setYear, expandedCompany, se
                   <p className="empty">No work logged for this company yet.</p>
                 ) : (
                   <table>
-                    <thead><tr><th>Date</th><th>Task</th><th>Time</th><th>Worker</th></tr></thead>
+                    <thead><tr><th>Date</th><th>Task</th><th>Time</th><th>Worker</th><th></th></tr></thead>
                     <tbody>
                       {companyLogs.map((l) => {
                         const w = state.workers.find((x) => x.id === l.workerId);
+                        const workerName = w ? w.name : '—';
                         return (
                           <tr key={l.id}>
                             <td>{l.date}</td>
                             <td>{l.task || ''}</td>
                             <td>{fmtHrs(l.minutes)}h</td>
-                            <td>{w ? w.name : '—'}</td>
+                            <td>{workerName}</td>
+                            <td className="row-actions"><button className="icon-btn danger" title="Delete" onClick={() => deleteLog(l, workerName)}><IconTrash width={15} height={15} /></button></td>
                           </tr>
                         );
                       })}

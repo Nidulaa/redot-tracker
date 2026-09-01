@@ -146,6 +146,7 @@ function AppShell() {
               setYear={setYear}
               expandedCompany={expandedCompany}
               setExpandedCompany={setExpandedCompany}
+              onDeleteLog={logsCrud.remove}
             />
           )}
           {tab === 'payments' && (

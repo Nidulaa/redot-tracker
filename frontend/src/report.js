@@ -26,22 +26,34 @@ export function downloadCompanyReport({ company, logs, packages, year }) {
   const remainingMinutes = allottedMinutes - usedMinutes;
 
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
 
-  // ---- letterhead ----
-  doc.setFillColor(RED);
-  doc.circle(55, 48, 4, 'F');
+  // ---- letterhead: "RE(play icon)OT" / "global" wordmark ----
   doc.setTextColor(INK);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text('REDOT GLOBAL', 68, 52);
-  doc.setTextColor(MUTED);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text('WEB MAINTENANCE REPORT', 68, 65);
+  doc.setFontSize(24);
+  doc.text('RE', 50, 55);
+  const reWidth = doc.getTextWidth('RE');
 
-  doc.setDrawColor(INK);
-  doc.setLineWidth(2);
-  doc.line(50, 84, 545, 84);
+  const iconR = 9;
+  const iconCx = 50 + reWidth + iconR + 2;
+  const iconCy = 48;
+  doc.setFillColor(RED);
+  doc.circle(iconCx, iconCy, iconR, 'F');
+  doc.setFillColor('#ffffff');
+  doc.triangle(iconCx - 3, iconCy - 4.5, iconCx - 3, iconCy + 4.5, iconCx + 5, iconCy, 'F');
+
+  doc.setTextColor(INK);
+  doc.text('OT', iconCx + iconR + 3, 55);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.setTextColor(MUTED);
+  doc.text('global', 50, 68);
+
+  doc.setDrawColor(RED);
+  doc.setLineWidth(1.5);
+  doc.line(50, 84, pageWidth - 50, 84);
 
   // ---- title ----
   doc.setTextColor(INK);
@@ -92,7 +104,7 @@ export function downloadCompanyReport({ company, logs, packages, year }) {
     startY: tableTop + 14,
     head: [['DATE', 'TASK', 'TIME']],
     body: rows,
-    margin: { left: 50, right: 50 },
+    margin: { left: 50, right: 50, bottom: 90 },
     styles: { font: 'helvetica', fontSize: 9, textColor: INK, cellPadding: 6 },
     headStyles: { fillColor: false, textColor: MUTED, fontStyle: 'bold', fontSize: 8, lineWidth: { bottom: 1 }, lineColor: INK },
     columnStyles: {
@@ -108,17 +120,22 @@ export function downloadCompanyReport({ company, logs, packages, year }) {
     },
   });
 
-  // ---- footer ----
-  const generatedOn = new Date().toLocaleString('en-US', {
-    year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
+  // ---- footer: matches the Redot invoice footer (line + registration + contact) ----
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const footerLineY = pageHeight - 62;
+  const footerTextY = footerLineY + 12;
   const pageCount = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+    doc.setDrawColor(RED);
+    doc.setLineWidth(1);
+    doc.line(50, footerLineY, pageWidth - 50, footerLineY);
+
     doc.setTextColor(MUTED);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.text(`Report generated on ${generatedOn} — Redot Global`, 297.5, 800, { align: 'center' });
+    doc.text('Redot (Pte) Ltd. Unique Entity Number: 201708294G.', 50, footerTextY);
+    doc.text('T: +65 690 173 64  M: +65 927 888 53 | E: info@redot.global | W: redot.global', pageWidth - 50, footerTextY, { align: 'right' });
   }
 
   const filename = `${company.name.replace(/[^a-z0-9]+/gi, '_')}_maintenance_report_${year}.pdf`;
