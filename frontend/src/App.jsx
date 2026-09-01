@@ -48,7 +48,7 @@ function AppShell() {
     return unsubscribe;
   }, [checkAuthAndLoad]);
 
-  const loadAll = useCallback(async () => {
+  const loadAll = useCallback(async (currentSession) => {
     const [companies, packages, logs, payments, workers, workerCosts] = await Promise.all([
       companiesApi.list(),
       packagesApi.list(),
@@ -57,12 +57,24 @@ function AppShell() {
       workersApi.list(),
       workerCostsApi.list(),
     ]);
-    setData({ companies, packages, logs, payments, workers, workerCosts });
+
+    // Every login account is its own worker. The DB trigger creates this row
+    // automatically for new accounts; this is a fallback for accounts that
+    // existed before the trigger was added (or ran before the backfill).
+    let allWorkers = workers;
+    const uid = currentSession?.user?.id;
+    if (uid && !workers.some((w) => w.userId === uid)) {
+      const displayName = currentSession.user.user_metadata?.name || (currentSession.user.email || '').split('@')[0];
+      const mine = await workersApi.add({ name: displayName, userId: uid });
+      allWorkers = [mine, ...workers];
+    }
+
+    setData({ companies, packages, logs, payments, workers: allWorkers, workerCosts });
     setLoaded(true);
   }, []);
 
   useEffect(() => {
-    if (session) loadAll();
+    if (session) loadAll(session);
     if (session === null) setLoaded(false);
   }, [session, loadAll]);
 
@@ -81,7 +93,6 @@ function AppShell() {
   }
 
   const companiesCrud = makeCrud('companies', companiesApi);
-  const workersCrud = makeCrud('workers', workersApi);
   const packagesCrud = makeCrud('packages', packagesApi);
   const logsCrud = makeCrud('logs', logsApi);
   const paymentsCrud = makeCrud('payments', paymentsApi);
@@ -121,7 +132,12 @@ function AppShell() {
         <div className="main-inner">
           {tab === 'overview' && <OverviewTab state={data} onNavigate={setTab} />}
           {tab === 'log' && (
-            <LogTab state={data} onAddLog={logsCrud.add} onDeleteLog={logsCrud.remove} onAddWorker={workersCrud.add} />
+            <LogTab
+              state={data}
+              onAddLog={logsCrud.add}
+              onDeleteLog={logsCrud.remove}
+              currentWorker={data.workers.find((w) => w.userId === session.user.id) || null}
+            />
           )}
           {tab === 'analytics' && (
             <AnalyticsTab
@@ -138,8 +154,6 @@ function AppShell() {
           {tab === 'people' && (
             <PeopleTab
               state={data}
-              onAddWorker={workersCrud.add}
-              onDeleteWorker={workersCrud.remove}
               onAddWorkerCost={workerCostsCrud.add}
               onDeleteWorkerCost={workerCostsCrud.remove}
               year={year}

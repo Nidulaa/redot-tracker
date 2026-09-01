@@ -3,14 +3,12 @@ import { fmtHrs, todayISO } from '../utils.js';
 import { useToast } from './Toast.jsx';
 import { IconTrash } from './Icons.jsx';
 
-export default function LogTab({ state, onAddLog, onDeleteLog, onAddWorker }) {
+export default function LogTab({ state, onAddLog, onDeleteLog, currentWorker }) {
   const toast = useToast();
   const [companyId, setCompanyId] = useState(state.companies[0]?.id || '');
   const [date, setDate] = useState(todayISO());
   const [task, setTask] = useState('');
   const [minutes, setMinutes] = useState('');
-  const [workerId, setWorkerId] = useState('');
-  const [newWorkerName, setNewWorkerName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -22,34 +20,27 @@ export default function LogTab({ state, onAddLog, onDeleteLog, onAddWorker }) {
     );
   }
 
+  if (!currentWorker) {
+    return (
+      <div className="panel">
+        <p className="empty">Setting up your worker profile… reload the page in a moment.</p>
+      </div>
+    );
+  }
+
   async function submit() {
-    let wId = workerId;
+    if (!companyId || !date || !minutes) {
+      setErrorMsg('Fill in company, date, and time spent.');
+      return;
+    }
     setSaving(true);
     try {
-      if (wId === '__new__') {
-        const name = newWorkerName.trim();
-        if (!name) {
-          setErrorMsg('Enter a name for the new worker.');
-          return;
-        }
-        const newWorker = await onAddWorker({ name });
-        toast(`Worker "${name}" added`);
-        wId = newWorker.id;
-      }
-
-      if (!companyId || !date || !minutes || !wId) {
-        setErrorMsg('Fill in company, date, time spent, and worker.');
-        return;
-      }
-
-      await onAddLog({ companyId, date, task, minutes: Number(minutes), workerId: wId });
+      await onAddLog({ companyId, date, task, minutes: Number(minutes), workerId: currentWorker.id });
       const c = state.companies.find((x) => x.id === companyId);
       toast(`Task logged for ${c ? c.name : 'company'}`);
       setErrorMsg('');
       setTask('');
       setMinutes('');
-      setWorkerId('');
-      setNewWorkerName('');
     } catch (e) {
       setErrorMsg(e.message || 'Something went wrong.');
     } finally {
@@ -62,12 +53,18 @@ export default function LogTab({ state, onAddLog, onDeleteLog, onAddWorker }) {
     toast('Entry removed', 'remove');
   }
 
-  const rows = [...state.logs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+  const myLogs = [...state.logs]
+    .filter((l) => l.workerId === currentWorker.id)
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 10);
 
   return (
     <>
       <div className="panel">
         <h2>Log a completed task</h2>
+        <p className="small-muted" style={{ marginTop: -8, marginBottom: 16 }}>
+          Logging as <strong>{currentWorker.name}</strong>
+        </p>
         <div className="row">
           <div className="field">
             <label>Company</label>
@@ -104,25 +101,6 @@ export default function LogTab({ state, onAddLog, onDeleteLog, onAddWorker }) {
               onChange={(e) => setMinutes(e.target.value)}
             />
           </div>
-          <div className="field">
-            <label>Worker</label>
-            <select value={workerId} onChange={(e) => setWorkerId(e.target.value)}>
-              <option value="">Select a worker…</option>
-              {state.workers.map((w) => (
-                <option key={w.id} value={w.id}>{w.name}</option>
-              ))}
-              <option value="__new__">+ Add new worker…</option>
-            </select>
-            {workerId === '__new__' && (
-              <input
-                type="text"
-                placeholder="New worker name"
-                style={{ marginTop: 6 }}
-                value={newWorkerName}
-                onChange={(e) => setNewWorkerName(e.target.value)}
-              />
-            )}
-          </div>
         </div>
         <div>{errorMsg && <div style={{ color: 'var(--red)', fontSize: 13 }}>{errorMsg}</div>}</div>
         <div style={{ marginTop: 16 }}>
@@ -130,25 +108,23 @@ export default function LogTab({ state, onAddLog, onDeleteLog, onAddWorker }) {
         </div>
       </div>
       <div className="panel">
-        <h2>Recent entries</h2>
-        {rows.length === 0 ? (
+        <h2>Your recent entries</h2>
+        {myLogs.length === 0 ? (
           <p className="empty">No entries yet.</p>
         ) : (
           <table>
             <thead>
-              <tr><th>Date</th><th>Company</th><th>Task</th><th>Time</th><th>Worker</th><th></th></tr>
+              <tr><th>Date</th><th>Company</th><th>Task</th><th>Time</th><th></th></tr>
             </thead>
             <tbody>
-              {rows.map((l) => {
+              {myLogs.map((l) => {
                 const c = state.companies.find((x) => x.id === l.companyId);
-                const w = state.workers.find((x) => x.id === l.workerId);
                 return (
                   <tr key={l.id}>
                     <td>{l.date}</td>
                     <td>{c ? c.name : '—'}</td>
                     <td>{l.task || ''}</td>
                     <td>{fmtHrs(l.minutes)}h</td>
-                    <td>{w ? w.name : '—'}</td>
                     <td className="row-actions"><button className="icon-btn danger" title="Delete" onClick={() => deleteLog(l.id)}><IconTrash width={15} height={15} /></button></td>
                   </tr>
                 );

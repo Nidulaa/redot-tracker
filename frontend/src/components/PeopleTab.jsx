@@ -1,13 +1,10 @@
 import { useState } from 'react';
 import { fmtMoney, todayISO, workerTotalCost } from '../utils.js';
 import { useToast } from './Toast.jsx';
-import { useConfirm } from './ConfirmDialog.jsx';
 import { IconTrash } from './Icons.jsx';
 
-export default function PeopleTab({ state, onAddWorker, onDeleteWorker, onAddWorkerCost, onDeleteWorkerCost, year, setYear }) {
+export default function PeopleTab({ state, onAddWorkerCost, onDeleteWorkerCost, year, setYear }) {
   const toast = useToast();
-  const confirmDialog = useConfirm();
-  const [newWorkerName, setNewWorkerName] = useState('');
   const [wcWorker, setWcWorker] = useState('');
   const [wcCompany, setWcCompany] = useState('');
   const [wcDate, setWcDate] = useState(todayISO());
@@ -17,25 +14,6 @@ export default function PeopleTab({ state, onAddWorker, onDeleteWorker, onAddWor
   const years = new Set([new Date().getFullYear()]);
   state.workerCosts.forEach((wc) => years.add(new Date(wc.date).getFullYear()));
   const yearList = [...years].sort((a, b) => b - a);
-
-  async function addWorker() {
-    const name = newWorkerName.trim();
-    if (!name) return;
-    await onAddWorker({ name });
-    toast(`Worker "${name}" added`);
-    setNewWorkerName('');
-  }
-
-  async function deleteWorker(id) {
-    const w = state.workers.find((x) => x.id === id);
-    const ok = await confirmDialog({
-      title: 'Delete worker',
-      message: `Delete "${w ? w.name : 'this worker'}"? Their logged cost history stays but becomes orphaned.`,
-    });
-    if (!ok) return;
-    await onDeleteWorker(id);
-    toast(`Worker "${w ? w.name : ''}" removed`, 'remove');
-  }
 
   async function addWorkerCost() {
     if (!wcWorker || !wcDate || !wcAmount) return;
@@ -61,20 +39,6 @@ export default function PeopleTab({ state, onAddWorker, onDeleteWorker, onAddWor
   return (
     <>
       <div className="panel">
-        <h2>Workers</h2>
-        {state.workers.length === 0 && <p className="empty">No workers added yet.</p>}
-        <div className="add-company-row">
-          <div className="field">
-            <label>New worker name</label>
-            <input type="text" placeholder="e.g. Kasun Perera" value={newWorkerName} onChange={(e) => setNewWorkerName(e.target.value)} />
-          </div>
-          <div className="field" style={{ justifyContent: 'flex-end', flex: 0 }}>
-            <button className="btn" onClick={addWorker}>Add worker</button>
-          </div>
-        </div>
-      </div>
-
-      <div className="panel">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0 }}>Payout summary — {year}</h2>
           <select className="tag-year" value={year} onChange={(e) => setYear(Number(e.target.value))}>
@@ -83,9 +47,12 @@ export default function PeopleTab({ state, onAddWorker, onDeleteWorker, onAddWor
             ))}
           </select>
         </div>
+        <p className="small-muted" style={{ marginTop: 6 }}>
+          Workers are created automatically from login accounts (Supabase Dashboard → Authentication → Users).
+        </p>
         <div style={{ marginTop: 14 }}>
           {state.workers.length === 0 ? (
-            <p className="empty">Add a worker above.</p>
+            <p className="empty">No worker accounts yet.</p>
           ) : (
             state.workers.map((w) => {
               const total = workerTotalCost(w, year, state.workerCosts);
@@ -111,7 +78,7 @@ export default function PeopleTab({ state, onAddWorker, onDeleteWorker, onAddWor
             <label>Worker</label>
             <select value={wcWorker} onChange={(e) => setWcWorker(e.target.value)}>
               {state.workers.length === 0 ? (
-                <option disabled>Add a worker first</option>
+                <option disabled>No workers yet</option>
               ) : (
                 <>
                   <option value=""></option>
@@ -167,25 +134,6 @@ export default function PeopleTab({ state, onAddWorker, onDeleteWorker, onAddWor
                   </tr>
                 );
               })}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      <div className="panel">
-        <h2>Manage workers</h2>
-        {state.workers.length === 0 ? (
-          <p className="empty">No workers yet.</p>
-        ) : (
-          <table>
-            <thead><tr><th>Name</th><th></th></tr></thead>
-            <tbody>
-              {state.workers.map((w) => (
-                <tr key={w.id}>
-                  <td>{w.name}</td>
-                  <td className="row-actions"><button className="icon-btn danger" title="Delete" onClick={() => deleteWorker(w.id)}><IconTrash width={15} height={15} /></button></td>
-                </tr>
-              ))}
             </tbody>
           </table>
         )}
