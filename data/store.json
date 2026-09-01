@@ -1,0 +1,5 @@
+{
+  "companies": "[{\"id\":\"4nynx7ly\",\"name\":\"REDOT\",\"annualHours\":12},{\"id\":\"53uw42hi\",\"name\":\"jack\",\"annualHours\":12}]",
+  "workers": "[{\"id\":\"i75gsh36\",\"name\":\"Nidula\"},{\"id\":\"2m25jbu6\",\"name\":\"imdad\"}]",
+  "logs": "[{\"id\":\"ebate3c0\",\"companyId\":\"4nynx7ly\",\"date\":\"2026-08-12\",\"task\":\"update nav\",\"minutes\":30,\"workerId\":\"i75gsh36\"},{\"id\":\"h8t3w1y2\",\"companyId\":\"4nynx7ly\",\"date\":\"2026-08-12\",\"task\":\"banner\",\"minutes\":45,\"workerId\":\"2m25jbu6\"}]"
+}
