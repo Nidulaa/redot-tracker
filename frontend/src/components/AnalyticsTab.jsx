@@ -6,7 +6,7 @@ export default function AnalyticsTab({ state, year, setYear, expandedCompany, se
   if (state.companies.length === 0) {
     return (
       <div className="panel">
-        <p className="empty">No companies yet. Add one in the Companies tab.</p>
+        <p className="empty">No companies yet. Add companies in the Companies tab.</p>
       </div>
     );
   }
