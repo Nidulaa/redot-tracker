@@ -156,6 +156,7 @@ button, input, select, textarea{ font-family:inherit; }
 .sidebar-link:hover{background:rgba(255,255,255,0.06);color:#fff;}
 .sidebar-link.active{background:var(--red);color:#fff;}
 .sidebar-link.active svg{opacity:1;}
+.sidebar-link.admin{margin-top:10px;padding-top:19px;border-top:1px solid rgba(255,255,255,0.08);}
 
 .sidebar-footer{
   padding:14px 14px 18px;

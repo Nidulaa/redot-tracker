@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { getSession, onAuthStateChange, signOut } from './auth.js';
 import { companiesApi, workersApi, packagesApi, logsApi, paymentsApi, workerCostsApi } from './db.js';
+import { isAdminUser } from './config.js';
 import { ToastProvider } from './components/Toast.jsx';
 import { ConfirmProvider } from './components/ConfirmDialog.jsx';
 import Login from './components/Login.jsx';
@@ -12,6 +13,7 @@ import AnalyticsTab from './components/AnalyticsTab.jsx';
 import PaymentsTab from './components/PaymentsTab.jsx';
 import PeopleTab from './components/PeopleTab.jsx';
 import CompaniesTab from './components/CompaniesTab.jsx';
+import AdminTab from './components/AdminTab.jsx';
 
 const TAB_TITLES = {
   overview: 'Overview',
@@ -20,6 +22,7 @@ const TAB_TITLES = {
   payments: 'Payments',
   people: 'People',
   companies: 'Companies',
+  admin: 'Admin Report',
 };
 
 function AppShell() {
@@ -114,6 +117,8 @@ function AppShell() {
     return <div className="boot-loading">Loading…</div>;
   }
 
+  const isAdmin = isAdminUser(session.user);
+
   return (
     <div className="shell">
       <Sidebar
@@ -123,6 +128,7 @@ function AppShell() {
         onLogout={handleLogout}
         open={menuOpen}
         onClose={closeMenu}
+        isAdmin={isAdmin}
       />
       <div className="main">
         <div className="topbar">
@@ -170,6 +176,7 @@ function AppShell() {
               onDeletePackage={packagesCrud.remove}
             />
           )}
+          {tab === 'admin' && (isAdmin ? <AdminTab state={data} /> : <div className="panel"><p className="empty">Admin access only.</p></div>)}
         </div>
       </div>
     </div>

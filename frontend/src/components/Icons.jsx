@@ -48,3 +48,9 @@ export const IconDownload = (p) => (
 export const IconChevron = (p) => (
   <svg {...base} {...p}><path d="M9 6l6 6-6 6" /></svg>
 );
+export const IconAdmin = (p) => (
+  <svg {...base} {...p}><path d="M12 3l7 3v5c0 4.5-2.9 8.2-7 10-4.1-1.8-7-5.5-7-10V6l7-3z" /><path d="M9 12l2 2 4-4" /></svg>
+);
+export const IconCalendar = (p) => (
+  <svg {...base} {...p}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 10h18" /></svg>
+);

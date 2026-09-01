@@ -1,4 +1,4 @@
-import { IconOverview, IconLog, IconChart, IconPayments, IconPeople, IconCompanies, IconLogout, IconClose } from './Icons.jsx';
+import { IconOverview, IconLog, IconChart, IconPayments, IconPeople, IconCompanies, IconAdmin, IconLogout, IconClose } from './Icons.jsx';
 
 const NAV = [
   { key: 'overview', label: 'Overview', icon: IconOverview },
@@ -9,7 +9,9 @@ const NAV = [
   { key: 'companies', label: 'Companies', icon: IconCompanies },
 ];
 
-export default function Sidebar({ active, onChange, user, onLogout, open, onClose }) {
+export default function Sidebar({ active, onChange, user, onLogout, open, onClose, isAdmin }) {
+  const nav = isAdmin ? [...NAV, { key: 'admin', label: 'Admin Report', icon: IconAdmin }] : NAV;
+
   return (
     <>
       {open && <div className="sidebar-scrim" onClick={onClose} />}
@@ -24,12 +26,12 @@ export default function Sidebar({ active, onChange, user, onLogout, open, onClos
         </div>
 
         <nav className="sidebar-nav">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const Icon = item.icon;
             return (
               <button
                 key={item.key}
-                className={'sidebar-link' + (active === item.key ? ' active' : '')}
+                className={'sidebar-link' + (active === item.key ? ' active' : '') + (item.key === 'admin' ? ' admin' : '')}
                 onClick={() => { onChange(item.key); onClose(); }}
               >
                 <Icon />

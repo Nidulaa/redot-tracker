@@ -2,6 +2,13 @@ export function fmtHrs(mins) {
   return (mins / 60).toFixed(1);
 }
 
+// Minutes under an hour read as "45m"; an hour or more reads as "1.5h".
+export function fmtDuration(mins) {
+  const m = Number(mins) || 0;
+  if (Math.abs(m) < 60) return `${Math.round(m)}m`;
+  return `${(m / 60).toFixed(1)}h`;
+}
+
 export function fmtMoney(n) {
   return '$' + Number(n || 0).toFixed(2);
 }
