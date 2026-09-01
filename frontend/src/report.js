@@ -1,12 +1,18 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { fmtHrs } from './utils.js';
 
 const RED = '#c8102e';
 const INK = '#141414';
 const MUTED = '#726f6a';
 
-export function downloadCompanyReport({ company, logs, packages, workers, year }) {
+// Minutes under an hour read as "45m"; an hour or more reads as "1.5h".
+function fmtDuration(mins) {
+  const m = Number(mins) || 0;
+  if (Math.abs(m) < 60) return `${Math.round(m)}m`;
+  return `${(m / 60).toFixed(1)}h`;
+}
+
+export function downloadCompanyReport({ company, logs, packages, year }) {
   const companyLogs = logs
     .filter((l) => l.companyId === company.id && new Date(l.date).getFullYear() === year)
     .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -18,11 +24,6 @@ export function downloadCompanyReport({ company, logs, packages, workers, year }
   const allottedMinutes = baseMinutes + pkgMinutes;
   const usedMinutes = companyLogs.reduce((s, l) => s + Number(l.minutes), 0);
   const remainingMinutes = allottedMinutes - usedMinutes;
-
-  const workerName = (id) => {
-    const w = workers.find((x) => x.id === id);
-    return w ? w.name : '—';
-  };
 
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
@@ -57,9 +58,9 @@ export function downloadCompanyReport({ company, logs, packages, workers, year }
   const boxW = 158;
   const boxGap = 15;
   const summaries = [
-    { label: 'ALLOTTED', value: fmtHrs(allottedMinutes) + 'h' },
-    { label: 'USED', value: fmtHrs(usedMinutes) + 'h' },
-    { label: 'REMAINING', value: fmtHrs(remainingMinutes) + 'h', warn: remainingMinutes < 0 },
+    { label: 'ALLOTTED', value: fmtDuration(allottedMinutes) },
+    { label: 'USED', value: fmtDuration(usedMinutes) },
+    { label: 'REMAINING', value: fmtDuration(remainingMinutes), warn: remainingMinutes < 0 },
   ];
   summaries.forEach((s, i) => {
     const x = 50 + i * (boxW + boxGap);
@@ -84,20 +85,19 @@ export function downloadCompanyReport({ company, logs, packages, workers, year }
   doc.text('Work completed', 50, tableTop);
 
   const rows = companyLogs.length
-    ? companyLogs.map((l) => [l.date, l.task || '—', workerName(l.workerId), fmtHrs(l.minutes) + 'h'])
-    : [['—', 'No work logged for this year.', '', '']];
+    ? companyLogs.map((l) => [l.date, l.task || '—', fmtDuration(l.minutes)])
+    : [['—', 'No work logged for this year.', '']];
 
   autoTable(doc, {
     startY: tableTop + 14,
-    head: [['DATE', 'TASK', 'BY', 'TIME']],
+    head: [['DATE', 'TASK', 'TIME']],
     body: rows,
     margin: { left: 50, right: 50 },
     styles: { font: 'helvetica', fontSize: 9, textColor: INK, cellPadding: 6 },
     headStyles: { fillColor: false, textColor: MUTED, fontStyle: 'bold', fontSize: 8, lineWidth: { bottom: 1 }, lineColor: INK },
     columnStyles: {
-      0: { cellWidth: 70 },
-      2: { cellWidth: 90 },
-      3: { cellWidth: 60 },
+      0: { cellWidth: 80 },
+      2: { cellWidth: 70 },
     },
     theme: 'plain',
     didParseCell: (data) => {

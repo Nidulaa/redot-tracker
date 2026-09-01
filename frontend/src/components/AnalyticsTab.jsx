@@ -55,7 +55,7 @@ export default function AnalyticsTab({ state, year, setYear, expandedCompany, se
             <button
               className="btn small icon-inline"
               style={{ marginTop: 12, marginLeft: 8 }}
-              onClick={() => downloadCompanyReport({ company: c, logs: state.logs, packages: state.packages, workers: state.workers, year })}
+              onClick={() => downloadCompanyReport({ company: c, logs: state.logs, packages: state.packages, year })}
             >
               <IconDownload width={14} height={14} /> Get report
             </button>
