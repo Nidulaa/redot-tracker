@@ -5,6 +5,26 @@ const RED = '#c8102e';
 const INK = '#141414';
 const MUTED = '#726f6a';
 
+// Exact letterhead/footer assets extracted from the real Redot invoice PDF
+// (frontend/public/pdf/) — native pixel sizes, used to keep aspect ratio.
+const LETTERHEAD_SRC = { url: '/pdf/letterhead.png', format: 'PNG', w: 2551, h: 260 };
+const FOOTER_SRC = { url: '/pdf/footer.png', format: 'PNG', w: 2554, h: 174 };
+
+const imageCache = new Map();
+async function loadImageDataUrl(url) {
+  if (imageCache.has(url)) return imageCache.get(url);
+  const promise = fetch(url)
+    .then((res) => res.blob())
+    .then((blob) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    }));
+  imageCache.set(url, promise);
+  return promise;
+}
+
 // Minutes under an hour read as "45m"; an hour or more reads as "1.5h".
 function fmtDuration(mins) {
   const m = Number(mins) || 0;
@@ -12,7 +32,7 @@ function fmtDuration(mins) {
   return `${(m / 60).toFixed(1)}h`;
 }
 
-export function downloadCompanyReport({ company, logs, packages, year }) {
+export async function downloadCompanyReport({ company, logs, packages, year }) {
   const companyLogs = logs
     .filter((l) => l.companyId === company.id && new Date(l.date).getFullYear() === year)
     .sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -25,48 +45,34 @@ export function downloadCompanyReport({ company, logs, packages, year }) {
   const usedMinutes = companyLogs.reduce((s, l) => s + Number(l.minutes), 0);
   const remainingMinutes = allottedMinutes - usedMinutes;
 
+  const [letterheadData, footerData] = await Promise.all([
+    loadImageDataUrl(LETTERHEAD_SRC.url),
+    loadImageDataUrl(FOOTER_SRC.url),
+  ]);
+
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - 100;
 
-  // ---- letterhead: "RE(play icon)OT" / "global" wordmark ----
-  doc.setTextColor(INK);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(24);
-  doc.text('RE', 50, 55);
-  const reWidth = doc.getTextWidth('RE');
-
-  const iconR = 9;
-  const iconCx = 50 + reWidth + iconR + 2;
-  const iconCy = 48;
-  doc.setFillColor(RED);
-  doc.circle(iconCx, iconCy, iconR, 'F');
-  doc.setFillColor('#ffffff');
-  doc.triangle(iconCx - 3, iconCy - 4.5, iconCx - 3, iconCy + 4.5, iconCx + 5, iconCy, 'F');
-
-  doc.setTextColor(INK);
-  doc.text('OT', iconCx + iconR + 3, 55);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(11);
-  doc.setTextColor(MUTED);
-  doc.text('global', 50, 68);
-
-  doc.setDrawColor(RED);
-  doc.setLineWidth(1.5);
-  doc.line(50, 84, pageWidth - 50, 84);
+  // ---- letterhead: the real Redot logo + rule, taken directly from the invoice ----
+  const letterheadH = (LETTERHEAD_SRC.h / LETTERHEAD_SRC.w) * contentWidth;
+  const letterheadY = 32;
+  doc.addImage(letterheadData, LETTERHEAD_SRC.format, 50, letterheadY, contentWidth, letterheadH);
 
   // ---- title ----
+  const titleY = letterheadY + letterheadH + 26;
   doc.setTextColor(INK);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
-  doc.text(company.name, 50, 112);
+  doc.text(company.name, 50, titleY);
   doc.setTextColor(MUTED);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.text(`Maintenance activity — ${year}`, 50, 130);
+  doc.text(`Maintenance activity — ${year}`, 50, titleY + 18);
 
   // ---- summary boxes ----
-  const summaryTop = 150;
+  const summaryTop = titleY + 38;
   const boxW = 158;
   const boxGap = 15;
   const summaries = [
@@ -120,22 +126,13 @@ export function downloadCompanyReport({ company, logs, packages, year }) {
     },
   });
 
-  // ---- footer: matches the Redot invoice footer (line + registration + contact) ----
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const footerLineY = pageHeight - 62;
-  const footerTextY = footerLineY + 12;
+  // ---- footer: the real Redot invoice footer (rule + registration + contact), verbatim ----
+  const footerH = (FOOTER_SRC.h / FOOTER_SRC.w) * contentWidth;
+  const footerY = pageHeight - footerH - 36;
   const pageCount = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    doc.setDrawColor(RED);
-    doc.setLineWidth(1);
-    doc.line(50, footerLineY, pageWidth - 50, footerLineY);
-
-    doc.setTextColor(MUTED);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text('Redot (Pte) Ltd. Unique Entity Number: 201708294G.', 50, footerTextY);
-    doc.text('T: +65 690 173 64  M: +65 927 888 53 | E: info@redot.global | W: redot.global', pageWidth - 50, footerTextY, { align: 'right' });
+    doc.addImage(footerData, FOOTER_SRC.format, 50, footerY, contentWidth, footerH);
   }
 
   const filename = `${company.name.replace(/[^a-z0-9]+/gi, '_')}_maintenance_report_${year}.pdf`;
