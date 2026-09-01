@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { fmtHrs, todayISO } from '../utils.js';
 import { useToast } from './Toast.jsx';
+import { IconTrash } from './Icons.jsx';
 
 export default function LogTab({ state, onAddLog, onDeleteLog, onAddWorker }) {
   const toast = useToast();
@@ -148,7 +149,7 @@ export default function LogTab({ state, onAddLog, onDeleteLog, onAddWorker }) {
                     <td>{l.task || ''}</td>
                     <td>{fmtHrs(l.minutes)}h</td>
                     <td>{w ? w.name : '—'}</td>
-                    <td><button className="btn small secondary" onClick={() => deleteLog(l.id)}>Delete</button></td>
+                    <td className="row-actions"><button className="icon-btn danger" title="Delete" onClick={() => deleteLog(l.id)}><IconTrash width={15} height={15} /></button></td>
                   </tr>
                 );
               })}

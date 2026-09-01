@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { fmtMoney, todayISO } from '../utils.js';
 import { useToast } from './Toast.jsx';
+import { IconTrash } from './Icons.jsx';
 
 export default function PaymentsTab({ state, onAddPayment, onDeletePayment }) {
   const toast = useToast();
@@ -90,7 +91,7 @@ export default function PaymentsTab({ state, onAddPayment, onDeletePayment }) {
                     <td>{fmtMoney(p.amount)}</td>
                     <td><span className={'badge ' + p.status}>{p.status}</span></td>
                     <td>{p.note || ''}</td>
-                    <td><button className="btn small secondary" onClick={() => deletePayment(p.id)}>Delete</button></td>
+                    <td className="row-actions"><button className="icon-btn danger" title="Delete" onClick={() => deletePayment(p.id)}><IconTrash width={15} height={15} /></button></td>
                   </tr>
                 );
               })}

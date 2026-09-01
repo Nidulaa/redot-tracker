@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { fmtMoney, todayISO, workerTotalCost } from '../utils.js';
 import { useToast } from './Toast.jsx';
+import { useConfirm } from './ConfirmDialog.jsx';
+import { IconTrash } from './Icons.jsx';
 
 export default function PeopleTab({ state, onAddWorker, onDeleteWorker, onAddWorkerCost, onDeleteWorkerCost, year, setYear }) {
   const toast = useToast();
+  const confirmDialog = useConfirm();
   const [newWorkerName, setNewWorkerName] = useState('');
   const [wcWorker, setWcWorker] = useState('');
   const [wcCompany, setWcCompany] = useState('');
@@ -25,7 +28,11 @@ export default function PeopleTab({ state, onAddWorker, onDeleteWorker, onAddWor
 
   async function deleteWorker(id) {
     const w = state.workers.find((x) => x.id === id);
-    if (!confirm('Delete this worker? Their logged cost history stays but becomes orphaned.')) return;
+    const ok = await confirmDialog({
+      title: 'Delete worker',
+      message: `Delete "${w ? w.name : 'this worker'}"? Their logged cost history stays but becomes orphaned.`,
+    });
+    if (!ok) return;
     await onDeleteWorker(id);
     toast(`Worker "${w ? w.name : ''}" removed`, 'remove');
   }
@@ -156,7 +163,7 @@ export default function PeopleTab({ state, onAddWorker, onDeleteWorker, onAddWor
                     <td>{c ? c.name : '—'}</td>
                     <td>{fmtMoney(wc.amount)}</td>
                     <td>{wc.note || ''}</td>
-                    <td><button className="btn small secondary" onClick={() => deleteWorkerCost(wc.id)}>Delete</button></td>
+                    <td className="row-actions"><button className="icon-btn danger" title="Delete" onClick={() => deleteWorkerCost(wc.id)}><IconTrash width={15} height={15} /></button></td>
                   </tr>
                 );
               })}
@@ -176,7 +183,7 @@ export default function PeopleTab({ state, onAddWorker, onDeleteWorker, onAddWor
               {state.workers.map((w) => (
                 <tr key={w.id}>
                   <td>{w.name}</td>
-                  <td><button className="btn small secondary" onClick={() => deleteWorker(w.id)}>Delete</button></td>
+                  <td className="row-actions"><button className="icon-btn danger" title="Delete" onClick={() => deleteWorker(w.id)}><IconTrash width={15} height={15} /></button></td>
                 </tr>
               ))}
             </tbody>

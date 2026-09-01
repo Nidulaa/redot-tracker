@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { fmtMoney, todayISO } from '../utils.js';
 import { useToast } from './Toast.jsx';
+import { useConfirm } from './ConfirmDialog.jsx';
+import { IconSearch, IconTrash } from './Icons.jsx';
 
 export default function CompaniesTab({ state, onAddCompany, onDeleteCompany, onAddPackage, onDeletePackage }) {
   const toast = useToast();
+  const confirmDialog = useConfirm();
+  const [search, setSearch] = useState('');
   const [newCoName, setNewCoName] = useState('');
   const [newCoHours, setNewCoHours] = useState(12);
   const [pkgCompany, setPkgCompany] = useState(state.companies[0]?.id || '');
@@ -23,7 +27,11 @@ export default function CompaniesTab({ state, onAddCompany, onDeleteCompany, onA
 
   async function deleteCompany(id) {
     const c = state.companies.find((x) => x.id === id);
-    if (!confirm('Delete this company? Its logs, packages and payments will stay but be orphaned.')) return;
+    const ok = await confirmDialog({
+      title: 'Delete company',
+      message: `Delete "${c ? c.name : 'this company'}"? Its logs, packages and payments will stay but be orphaned.`,
+    });
+    if (!ok) return;
     await onDeleteCompany(id);
     toast(`Company "${c ? c.name : ''}" removed`, 'remove');
   }
@@ -42,22 +50,33 @@ export default function CompaniesTab({ state, onAddCompany, onDeleteCompany, onA
   }
 
   const sortedPackages = [...state.packages].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const filteredCompanies = state.companies.filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()));
 
   return (
     <>
       <div className="panel">
-        <h2>Companies</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <h2 style={{ margin: 0 }}>Companies</h2>
+          {state.companies.length > 0 && (
+            <div className="search-box">
+              <IconSearch width={14} height={14} />
+              <input type="text" placeholder="Search companies…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+          )}
+        </div>
         {state.companies.length === 0 ? (
           <p className="empty">No companies added yet.</p>
+        ) : filteredCompanies.length === 0 ? (
+          <p className="empty">No companies match "{search}".</p>
         ) : (
-          <table>
+          <table style={{ marginTop: 14 }}>
             <thead><tr><th>Name</th><th>Default annual hours</th><th></th></tr></thead>
             <tbody>
-              {state.companies.map((c) => (
+              {filteredCompanies.map((c) => (
                 <tr key={c.id}>
                   <td>{c.name}</td>
                   <td>{c.annualHours}h / yr</td>
-                  <td><button className="btn small secondary" onClick={() => deleteCompany(c.id)}>Delete</button></td>
+                  <td className="row-actions"><button className="icon-btn danger" title="Delete" onClick={() => deleteCompany(c.id)}><IconTrash width={15} height={15} /></button></td>
                 </tr>
               ))}
             </tbody>
@@ -122,7 +141,7 @@ export default function CompaniesTab({ state, onAddCompany, onDeleteCompany, onA
                     <td>{c ? c.name : '—'}</td>
                     <td>{p.hours}h</td>
                     <td>{fmtMoney(p.cost)}</td>
-                    <td><button className="btn small secondary" onClick={() => deletePackage(p.id)}>Delete</button></td>
+                    <td className="row-actions"><button className="icon-btn danger" title="Delete" onClick={() => deletePackage(p.id)}><IconTrash width={15} height={15} /></button></td>
                   </tr>
                 );
               })}

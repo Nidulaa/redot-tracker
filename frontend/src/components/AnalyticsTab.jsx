@@ -1,5 +1,6 @@
 import { fmtHrs, companyAllotted, companyUsed } from '../utils.js';
 import { downloadCompanyReport } from '../report.js';
+import { IconDownload } from './Icons.jsx';
 
 export default function AnalyticsTab({ state, year, setYear, expandedCompany, setExpandedCompany }) {
   if (state.companies.length === 0) {
@@ -52,11 +53,11 @@ export default function AnalyticsTab({ state, year, setYear, expandedCompany, se
               {isOpen ? 'Hide work log' : 'View work done'}
             </button>
             <button
-              className="btn small"
+              className="btn small icon-inline"
               style={{ marginTop: 12, marginLeft: 8 }}
               onClick={() => downloadCompanyReport({ company: c, logs: state.logs, packages: state.packages, workers: state.workers, year })}
             >
-              Get report
+              <IconDownload width={14} height={14} /> Get report
             </button>
             {isOpen && (
               <div style={{ marginTop: 16, borderTop: '1px solid var(--line)', paddingTop: 14 }}>

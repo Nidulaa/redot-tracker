@@ -2,14 +2,25 @@ import { useEffect, useState, useCallback } from 'react';
 import { getSession, onAuthStateChange, signOut } from './auth.js';
 import { companiesApi, workersApi, packagesApi, logsApi, paymentsApi, workerCostsApi } from './db.js';
 import { ToastProvider } from './components/Toast.jsx';
+import { ConfirmProvider } from './components/ConfirmDialog.jsx';
 import Login from './components/Login.jsx';
-import Header from './components/Header.jsx';
-import Tabs from './components/Tabs.jsx';
+import Sidebar from './components/Sidebar.jsx';
+import { IconMenu } from './components/Icons.jsx';
+import OverviewTab from './components/OverviewTab.jsx';
 import LogTab from './components/LogTab.jsx';
 import AnalyticsTab from './components/AnalyticsTab.jsx';
 import PaymentsTab from './components/PaymentsTab.jsx';
 import PeopleTab from './components/PeopleTab.jsx';
 import CompaniesTab from './components/CompaniesTab.jsx';
+
+const TAB_TITLES = {
+  overview: 'Overview',
+  log: 'Log Task',
+  analytics: 'Analytics',
+  payments: 'Payments',
+  people: 'People',
+  companies: 'Companies',
+};
 
 function AppShell() {
   const [session, setSession] = useState(undefined); // undefined = checking, null = signed out
@@ -19,15 +30,23 @@ function AppShell() {
   });
   const [loaded, setLoaded] = useState(false);
 
-  const [tab, setTab] = useState('log');
+  const [tab, setTab] = useState('overview');
   const [year, setYear] = useState(new Date().getFullYear());
   const [expandedCompany, setExpandedCompany] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+  const checkAuthAndLoad = useCallback(async () => {
+    const sess = await getSession();
+    setSession(sess);
+  }, []);
 
   useEffect(() => {
-    getSession().then(setSession);
+    checkAuthAndLoad();
     const unsubscribe = onAuthStateChange((s) => setSession(s));
     return unsubscribe;
-  }, []);
+  }, [checkAuthAndLoad]);
 
   const loadAll = useCallback(async () => {
     const [companies, packages, logs, payments, workers, workerCosts] = await Promise.all([
@@ -73,7 +92,7 @@ function AppShell() {
   }
 
   if (session === undefined) {
-    return <div className="app">Loading…</div>;
+    return <div className="boot-loading">Loading…</div>;
   }
 
   if (session === null) {
@@ -81,49 +100,62 @@ function AppShell() {
   }
 
   if (!loaded) {
-    return <div className="app">Loading…</div>;
+    return <div className="boot-loading">Loading…</div>;
   }
 
   return (
-    <div className="app" id="app">
-      <Header user={session.user} onLogout={handleLogout} />
-      <Tabs active={tab} onChange={setTab} />
-      <div id="tabBody">
-        {tab === 'log' && (
-          <LogTab state={data} onAddLog={logsCrud.add} onDeleteLog={logsCrud.remove} onAddWorker={workersCrud.add} />
-        )}
-        {tab === 'analytics' && (
-          <AnalyticsTab
-            state={data}
-            year={year}
-            setYear={setYear}
-            expandedCompany={expandedCompany}
-            setExpandedCompany={setExpandedCompany}
-          />
-        )}
-        {tab === 'payments' && (
-          <PaymentsTab state={data} onAddPayment={paymentsCrud.add} onDeletePayment={paymentsCrud.remove} />
-        )}
-        {tab === 'people' && (
-          <PeopleTab
-            state={data}
-            onAddWorker={workersCrud.add}
-            onDeleteWorker={workersCrud.remove}
-            onAddWorkerCost={workerCostsCrud.add}
-            onDeleteWorkerCost={workerCostsCrud.remove}
-            year={year}
-            setYear={setYear}
-          />
-        )}
-        {tab === 'companies' && (
-          <CompaniesTab
-            state={data}
-            onAddCompany={companiesCrud.add}
-            onDeleteCompany={companiesCrud.remove}
-            onAddPackage={packagesCrud.add}
-            onDeletePackage={packagesCrud.remove}
-          />
-        )}
+    <div className="shell">
+      <Sidebar
+        active={tab}
+        onChange={setTab}
+        user={session.user}
+        onLogout={handleLogout}
+        open={menuOpen}
+        onClose={closeMenu}
+      />
+      <div className="main">
+        <div className="topbar">
+          <button className="topbar-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu"><IconMenu /></button>
+          <div className="topbar-title">{TAB_TITLES[tab]}</div>
+        </div>
+        <div className="main-inner">
+          {tab === 'overview' && <OverviewTab state={data} onNavigate={setTab} />}
+          {tab === 'log' && (
+            <LogTab state={data} onAddLog={logsCrud.add} onDeleteLog={logsCrud.remove} onAddWorker={workersCrud.add} />
+          )}
+          {tab === 'analytics' && (
+            <AnalyticsTab
+              state={data}
+              year={year}
+              setYear={setYear}
+              expandedCompany={expandedCompany}
+              setExpandedCompany={setExpandedCompany}
+            />
+          )}
+          {tab === 'payments' && (
+            <PaymentsTab state={data} onAddPayment={paymentsCrud.add} onDeletePayment={paymentsCrud.remove} />
+          )}
+          {tab === 'people' && (
+            <PeopleTab
+              state={data}
+              onAddWorker={workersCrud.add}
+              onDeleteWorker={workersCrud.remove}
+              onAddWorkerCost={workerCostsCrud.add}
+              onDeleteWorkerCost={workerCostsCrud.remove}
+              year={year}
+              setYear={setYear}
+            />
+          )}
+          {tab === 'companies' && (
+            <CompaniesTab
+              state={data}
+              onAddCompany={companiesCrud.add}
+              onDeleteCompany={companiesCrud.remove}
+              onAddPackage={packagesCrud.add}
+              onDeletePackage={packagesCrud.remove}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -132,7 +164,9 @@ function AppShell() {
 export default function App() {
   return (
     <ToastProvider>
-      <AppShell />
+      <ConfirmProvider>
+        <AppShell />
+      </ConfirmProvider>
     </ToastProvider>
   );
 }
