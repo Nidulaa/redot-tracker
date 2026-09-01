@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { fmtMoney, fmtDuration, todayISO } from '../utils.js';
+import { fmtMoney, todayISO } from '../utils.js';
 import { downloadMonthlyReport } from '../report.js';
 import { IconDownload, IconTrash } from './Icons.jsx';
 import { useToast } from './Toast.jsx';
@@ -96,15 +96,10 @@ export default function AdminTab({ state, onAddIncome, onDeleteIncome, onAddExpe
 
   const monthIncome = state.adminIncome.filter((r) => inMonth(r.date)).sort((a, b) => new Date(b.date) - new Date(a.date));
   const monthExpenses = state.adminExpenses.filter((r) => inMonth(r.date)).sort((a, b) => new Date(b.date) - new Date(a.date));
-  const monthLogs = state.logs.filter((l) => inMonth(l.date)).sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  const companyName = (id) => state.companies.find((c) => c.id === id)?.name || '—';
-  const workerName = (id) => state.workers.find((w) => w.id === id)?.name || '—';
 
   const totalIncome = monthIncome.reduce((s, r) => s + Number(r.amount), 0);
   const totalExpenses = monthExpenses.reduce((s, r) => s + Number(r.amount), 0);
   const net = totalIncome - totalExpenses;
-  const hoursLogged = monthLogs.reduce((s, l) => s + Number(l.minutes), 0);
 
   async function addIncome(row) {
     await onAddIncome(row);
@@ -133,9 +128,6 @@ export default function AdminTab({ state, onAddIncome, onDeleteIncome, onAddExpe
       await downloadMonthlyReport({
         monthKey: month,
         monthLabel: monthLabel(month),
-        companies: state.companies,
-        workers: state.workers,
-        logs: state.logs,
         income: state.adminIncome,
         expenses: state.adminExpenses,
       });
@@ -150,7 +142,6 @@ export default function AdminTab({ state, onAddIncome, onDeleteIncome, onAddExpe
     { label: 'Income', value: fmtMoney(totalIncome) },
     { label: 'Expenses', value: fmtMoney(totalExpenses) },
     { label: 'Net', value: fmtMoney(net), warn: net < 0 },
-    { label: 'Hours logged', value: fmtDuration(hoursLogged) },
   ];
 
   return (
@@ -158,7 +149,7 @@ export default function AdminTab({ state, onAddIncome, onDeleteIncome, onAddExpe
       <div className="panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ margin: 0 }}>Admin monthly report</h2>
-          <p className="small-muted" style={{ marginTop: 6 }}>A separate income/expense ledger for the business, plus every logged task.</p>
+          <p className="small-muted" style={{ marginTop: 6 }}>A separate income/expense ledger for the business.</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="tag-year" />
@@ -187,31 +178,6 @@ export default function AdminTab({ state, onAddIncome, onDeleteIncome, onAddExpe
       <div className="panel">
         <h2>Expenses — {monthLabel(month)}</h2>
         <EntryTable rows={monthExpenses} onDelete={deleteExpense} emptyLabel="No expenses recorded for this month." />
-      </div>
-
-      <div className="panel">
-        <h2>Work logs — every task this month</h2>
-        {monthLogs.length === 0 ? (
-          <p className="empty">No work logged for {monthLabel(month)}.</p>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead><tr><th>Date</th><th>Company</th><th>Worker</th><th>Description</th><th>Time</th><th>Logged at</th></tr></thead>
-              <tbody>
-                {monthLogs.map((l) => (
-                  <tr key={l.id}>
-                    <td>{l.date}</td>
-                    <td>{companyName(l.companyId)}</td>
-                    <td>{workerName(l.workerId)}</td>
-                    <td>{l.task || ''}</td>
-                    <td>{fmtDuration(l.minutes)}</td>
-                    <td>{l.created_at ? new Date(l.created_at).toLocaleString() : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
     </>
   );

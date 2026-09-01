@@ -63,9 +63,12 @@ your host's build settings (they're baked into the build at build time).
 - Sign-in is handled entirely by Supabase Auth (email + password). There's
   no custom session/cookie logic — the Supabase client manages the session
   in the browser and refreshes tokens automatically.
-- All app data (companies, logs, packages, payments, workers, worker costs)
-  lives in Supabase Postgres tables and is read/written directly from the
-  browser via the Supabase JS client, protected by Row Level Security.
+- All app data (companies, logs, packages, payments, workers, worker costs,
+  and the admin income/expense ledger) lives in Supabase Postgres tables and
+  is read/written directly from the browser via the Supabase JS client,
+  protected by Row Level Security. Every table grants full access to any
+  signed-in account except `admin_income`/`admin_expenses`, which are
+  restricted to specific emails (see "Admin Report" below).
 - The maintenance report (PDF) is generated client-side with `jsPDF` — no
   server round-trip.
 
@@ -77,6 +80,7 @@ frontend/                  Vite + React app (the entire product)
     supabaseClient.js       Supabase client init (reads VITE_* env vars)
     auth.js                 Sign in/out, session helpers
     db.js                   CRUD helpers per table (companies, logs, ...)
+    config.js                Admin email allowlist (UI gate only)
     report.js                Client-side PDF report generation
     App.jsx                  Top-level shell: auth gate + tab routing
     components/               Login, Sidebar, ConfirmDialog, Icons, and one component per tab
@@ -102,3 +106,26 @@ Use the Supabase Dashboard: **Authentication -> Users**. Add a user (email +
 password) to grant access — their worker profile is created automatically
 the moment they log in. Delete a user there to revoke access; their
 historical logs and payouts stay in place but become unattributed.
+
+## Admin Report
+
+A separate "Admin Report" tab appears in the sidebar only for accounts
+listed as admins. It's a standalone monthly income/expense ledger — with
+its own **Add income** / **Add expense** forms (date, name, description,
+amount) — plus a read-only view of every logged task that month. It's
+deliberately separate from the **Payments** tab (client billing) and
+**People** tab (worker payouts); those track operational data per company/
+worker, while this is a general business ledger the admin fills in by hand.
+A **Download PDF** button exports the selected month using the same
+letterhead/footer as the company report.
+
+This is the one part of the app actually restricted at the database level
+(everything else grants any signed-in user full access — see "How auth &
+data work" above). To add or remove an admin:
+
+1. In `supabase/schema.sql`, edit the two `array['nidulalokuge@gmail.com']`
+   lists near the bottom (`admin_income` / `admin_expenses` policies) to
+   include the account's email, then re-run the script in the SQL Editor.
+2. In `frontend/src/config.js`, add the same email to `ADMIN_EMAILS` (this
+   only controls whether the sidebar link shows up — the real access
+   control is the SQL policy from step 1) and redeploy.

@@ -147,21 +147,16 @@ export async function downloadCompanyReport({ company, logs, packages, year }) {
   doc.save(filename);
 }
 
-// ---------- Admin monthly report: the admin income/expense ledger + every logged task ----------
-export async function downloadMonthlyReport({ monthKey, monthLabel, companies, workers, logs, income, expenses }) {
+// ---------- Admin monthly report: the admin income/expense ledger ----------
+export async function downloadMonthlyReport({ monthKey, monthLabel, income, expenses }) {
   const inMonth = (dateStr) => typeof dateStr === 'string' && dateStr.startsWith(monthKey);
 
   const monthIncome = income.filter((r) => inMonth(r.date)).sort((a, b) => new Date(a.date) - new Date(b.date));
   const monthExpenses = expenses.filter((r) => inMonth(r.date)).sort((a, b) => new Date(a.date) - new Date(b.date));
-  const monthLogs = logs.filter((l) => inMonth(l.date)).sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  const companyName = (id) => companies.find((c) => c.id === id)?.name || '—';
-  const workerName = (id) => workers.find((w) => w.id === id)?.name || '—';
 
   const totalIncome = monthIncome.reduce((s, r) => s + Number(r.amount), 0);
   const totalExpenses = monthExpenses.reduce((s, r) => s + Number(r.amount), 0);
   const net = totalIncome - totalExpenses;
-  const hoursLogged = monthLogs.reduce((s, l) => s + Number(l.minutes), 0);
 
   const { letterheadData, footerData } = await loadLetterheadAssets();
 
@@ -190,13 +185,7 @@ export async function downloadMonthlyReport({ monthKey, monthLabel, companies, w
     { label: 'NET', value: fmtMoney(net), warn: net < 0 },
   ], row1Top, 158, 15);
 
-  const row2Top = row1Top + 70;
-  drawSummaryBoxes(doc, [
-    { label: 'HOURS LOGGED', value: fmtDuration(hoursLogged) },
-    { label: 'TASK ENTRIES', value: String(monthLogs.length) },
-  ], row2Top, 236, 23);
-
-  let y = row2Top + 90;
+  let y = row1Top + 90;
 
   function ensureSpace(needed) {
     if (y + needed > pageHeight - footerReserve) {
@@ -256,36 +245,6 @@ export async function downloadMonthlyReport({ monthKey, monthLabel, companies, w
       }
     },
   });
-  y = doc.lastAutoTable.finalY + 26;
-
-  // ---- work logs ----
-  sectionHeading('Work logs — every task this month');
-  autoTable(doc, {
-    startY: y,
-    head: [['DATE', 'COMPANY', 'WORKER', 'DESCRIPTION', 'TIME', 'LOGGED AT']],
-    body: monthLogs.length
-      ? monthLogs.map((l) => [
-          l.date,
-          companyName(l.companyId),
-          workerName(l.workerId),
-          l.task || '—',
-          fmtDuration(l.minutes),
-          l.created_at ? new Date(l.created_at).toLocaleString() : '—',
-        ])
-      : [['—', 'No work logged this month.', '', '', '', '']],
-    margin: { left: 50, right: 50, bottom: footerReserve },
-    styles: { font: 'helvetica', fontSize: 8.5, textColor: INK, cellPadding: 5 },
-    headStyles: { fillColor: false, textColor: MUTED, fontStyle: 'bold', fontSize: 7.5, lineWidth: { bottom: 1 }, lineColor: INK },
-    columnStyles: { 0: { cellWidth: 58 }, 4: { cellWidth: 42 }, 5: { cellWidth: 90 } },
-    theme: 'plain',
-    didParseCell: (data) => {
-      if (data.section === 'body') {
-        data.cell.styles.lineWidth = { bottom: 0.5 };
-        data.cell.styles.lineColor = LINE;
-      }
-    },
-  });
-
   applyFooterToAllPages(doc, footerData, contentWidth);
 
   doc.save(`redot_admin_report_${monthKey}.pdf`);
