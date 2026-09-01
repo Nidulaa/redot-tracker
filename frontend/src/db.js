@@ -27,3 +27,5 @@ export const packagesApi = makeResource('packages');
 export const logsApi = makeResource('logs');
 export const paymentsApi = makeResource('payments');
 export const workerCostsApi = makeResource('worker_costs');
+export const adminIncomeApi = makeResource('admin_income');
+export const adminExpensesApi = makeResource('admin_expenses');

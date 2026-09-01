@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { fmtMoney, fmtDuration } from '../utils.js';
+import { fmtMoney, fmtDuration, todayISO } from '../utils.js';
 import { downloadMonthlyReport } from '../report.js';
-import { IconDownload } from './Icons.jsx';
+import { IconDownload, IconTrash } from './Icons.jsx';
 import { useToast } from './Toast.jsx';
+import { useConfirm } from './ConfirmDialog.jsx';
 
 function currentMonthKey() {
   const d = new Date();
@@ -14,25 +15,117 @@ function monthLabel(monthKey) {
   return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
-export default function AdminTab({ state }) {
+function EntryForm({ title, hint, onSubmit, submitLabel }) {
+  const [date, setDate] = useState(todayISO());
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    if (!date || !name.trim() || !amount) return;
+    setSaving(true);
+    try {
+      await onSubmit({ date, name: name.trim(), description: description.trim(), amount: Number(amount) });
+      setName('');
+      setDescription('');
+      setAmount('');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="panel">
+      <h2>{title}</h2>
+      {hint && <p className="small-muted" style={{ marginTop: -8, marginBottom: 14 }}>{hint}</p>}
+      <div className="row">
+        <div className="field">
+          <label>Date</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Name</label>
+          <input type="text" placeholder="e.g. Office rent" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Amount ($)</label>
+          <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </div>
+      </div>
+      <div className="row" style={{ marginTop: 12 }}>
+        <div className="field">
+          <label>Description (optional)</label>
+          <input type="text" placeholder="Any extra detail" value={description} onChange={(e) => setDescription(e.target.value)} />
+        </div>
+      </div>
+      <div style={{ marginTop: 16 }}>
+        <button className="btn" onClick={submit} disabled={saving}>{submitLabel}</button>
+      </div>
+    </div>
+  );
+}
+
+function EntryTable({ rows, onDelete, emptyLabel }) {
+  if (rows.length === 0) return <p className="empty">{emptyLabel}</p>;
+  return (
+    <table>
+      <thead><tr><th>Date</th><th>Name</th><th>Description</th><th>Amount</th><th></th></tr></thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.id}>
+            <td>{r.date}</td>
+            <td>{r.name}</td>
+            <td>{r.description || ''}</td>
+            <td>{fmtMoney(r.amount)}</td>
+            <td className="row-actions"><button className="icon-btn danger" title="Delete" onClick={() => onDelete(r.id)}><IconTrash width={15} height={15} /></button></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+export default function AdminTab({ state, onAddIncome, onDeleteIncome, onAddExpense, onDeleteExpense }) {
   const toast = useToast();
+  const confirmDialog = useConfirm();
   const [month, setMonth] = useState(currentMonthKey());
   const [downloading, setDownloading] = useState(false);
 
   const inMonth = (dateStr) => typeof dateStr === 'string' && dateStr.startsWith(month);
 
+  const monthIncome = state.adminIncome.filter((r) => inMonth(r.date)).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const monthExpenses = state.adminExpenses.filter((r) => inMonth(r.date)).sort((a, b) => new Date(b.date) - new Date(a.date));
+  const monthLogs = state.logs.filter((l) => inMonth(l.date)).sort((a, b) => new Date(b.date) - new Date(a.date));
+
   const companyName = (id) => state.companies.find((c) => c.id === id)?.name || '—';
   const workerName = (id) => state.workers.find((w) => w.id === id)?.name || '—';
 
-  const monthPayments = state.payments.filter((p) => inMonth(p.date)).sort((a, b) => new Date(b.date) - new Date(a.date));
-  const monthCosts = state.workerCosts.filter((wc) => inMonth(wc.date)).sort((a, b) => new Date(b.date) - new Date(a.date));
-  const monthLogs = state.logs.filter((l) => inMonth(l.date)).sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  const incomePaid = monthPayments.filter((p) => p.status === 'paid').reduce((s, p) => s + Number(p.amount), 0);
-  const outstanding = monthPayments.filter((p) => p.status !== 'paid').reduce((s, p) => s + Number(p.amount), 0);
-  const expenses = monthCosts.reduce((s, wc) => s + Number(wc.amount || 0), 0);
-  const net = incomePaid - expenses;
+  const totalIncome = monthIncome.reduce((s, r) => s + Number(r.amount), 0);
+  const totalExpenses = monthExpenses.reduce((s, r) => s + Number(r.amount), 0);
+  const net = totalIncome - totalExpenses;
   const hoursLogged = monthLogs.reduce((s, l) => s + Number(l.minutes), 0);
+
+  async function addIncome(row) {
+    await onAddIncome(row);
+    toast('Income entry added');
+  }
+  async function deleteIncome(id) {
+    const ok = await confirmDialog({ title: 'Delete income entry', message: 'This can\'t be undone.' });
+    if (!ok) return;
+    await onDeleteIncome(id);
+    toast('Income entry removed', 'remove');
+  }
+  async function addExpense(row) {
+    await onAddExpense(row);
+    toast('Expense entry added');
+  }
+  async function deleteExpense(id) {
+    const ok = await confirmDialog({ title: 'Delete expense entry', message: 'This can\'t be undone.' });
+    if (!ok) return;
+    await onDeleteExpense(id);
+    toast('Expense entry removed', 'remove');
+  }
 
   async function handleDownload() {
     setDownloading(true);
@@ -43,8 +136,8 @@ export default function AdminTab({ state }) {
         companies: state.companies,
         workers: state.workers,
         logs: state.logs,
-        payments: state.payments,
-        workerCosts: state.workerCosts,
+        income: state.adminIncome,
+        expenses: state.adminExpenses,
       });
     } catch (e) {
       toast('Could not generate the report', 'remove');
@@ -54,10 +147,9 @@ export default function AdminTab({ state }) {
   }
 
   const kpis = [
-    { label: 'Income (paid)', value: fmtMoney(incomePaid) },
-    { label: 'Expenses', value: fmtMoney(expenses) },
+    { label: 'Income', value: fmtMoney(totalIncome) },
+    { label: 'Expenses', value: fmtMoney(totalExpenses) },
     { label: 'Net', value: fmtMoney(net), warn: net < 0 },
-    { label: 'Outstanding', value: fmtMoney(outstanding), warn: outstanding > 0 },
     { label: 'Hours logged', value: fmtDuration(hoursLogged) },
   ];
 
@@ -66,7 +158,7 @@ export default function AdminTab({ state }) {
       <div className="panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ margin: 0 }}>Admin monthly report</h2>
-          <p className="small-muted" style={{ marginTop: 6 }}>Every income, expense, and logged task for the selected month.</p>
+          <p className="small-muted" style={{ marginTop: 6 }}>A separate income/expense ledger for the business, plus every logged task.</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="tag-year" />
@@ -85,48 +177,16 @@ export default function AdminTab({ state }) {
         ))}
       </div>
 
+      <EntryForm title="Add income" submitLabel="Save income" onSubmit={addIncome} />
       <div className="panel">
-        <h2>Income — company payments</h2>
-        {monthPayments.length === 0 ? (
-          <p className="empty">No payments recorded for {monthLabel(month)}.</p>
-        ) : (
-          <table>
-            <thead><tr><th>Date</th><th>Company</th><th>Amount</th><th>Status</th><th>Note</th></tr></thead>
-            <tbody>
-              {monthPayments.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.date}</td>
-                  <td>{companyName(p.companyId)}</td>
-                  <td>{fmtMoney(p.amount)}</td>
-                  <td><span className={'badge ' + p.status}>{p.status}</span></td>
-                  <td>{p.note || ''}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <h2>Income — {monthLabel(month)}</h2>
+        <EntryTable rows={monthIncome} onDelete={deleteIncome} emptyLabel="No income recorded for this month." />
       </div>
 
+      <EntryForm title="Add expense" submitLabel="Save expense" onSubmit={addExpense} />
       <div className="panel">
-        <h2>Expenses — worker payouts</h2>
-        {monthCosts.length === 0 ? (
-          <p className="empty">No payouts recorded for {monthLabel(month)}.</p>
-        ) : (
-          <table>
-            <thead><tr><th>Date</th><th>Worker</th><th>Company</th><th>Amount</th><th>Note</th></tr></thead>
-            <tbody>
-              {monthCosts.map((wc) => (
-                <tr key={wc.id}>
-                  <td>{wc.date}</td>
-                  <td>{workerName(wc.workerId)}</td>
-                  <td>{wc.companyId ? companyName(wc.companyId) : '—'}</td>
-                  <td>{fmtMoney(wc.amount)}</td>
-                  <td>{wc.note || ''}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <h2>Expenses — {monthLabel(month)}</h2>
+        <EntryTable rows={monthExpenses} onDelete={deleteExpense} emptyLabel="No expenses recorded for this month." />
       </div>
 
       <div className="panel">

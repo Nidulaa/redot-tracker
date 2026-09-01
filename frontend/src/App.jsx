@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { getSession, onAuthStateChange, signOut } from './auth.js';
-import { companiesApi, workersApi, packagesApi, logsApi, paymentsApi, workerCostsApi } from './db.js';
+import { companiesApi, workersApi, packagesApi, logsApi, paymentsApi, workerCostsApi, adminIncomeApi, adminExpensesApi } from './db.js';
 import { isAdminUser } from './config.js';
 import { ToastProvider } from './components/Toast.jsx';
 import { ConfirmProvider } from './components/ConfirmDialog.jsx';
@@ -30,6 +30,7 @@ function AppShell() {
 
   const [data, setData] = useState({
     companies: [], packages: [], logs: [], payments: [], workers: [], workerCosts: [],
+    adminIncome: [], adminExpenses: [],
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -52,13 +53,16 @@ function AppShell() {
   }, [checkAuthAndLoad]);
 
   const loadAll = useCallback(async (currentSession) => {
-    const [companies, packages, logs, payments, workers, workerCosts] = await Promise.all([
+    const [companies, packages, logs, payments, workers, workerCosts, adminIncome, adminExpenses] = await Promise.all([
       companiesApi.list(),
       packagesApi.list(),
       logsApi.list(),
       paymentsApi.list(),
       workersApi.list(),
       workerCostsApi.list(),
+      // Empty for non-admins — RLS restricts these two tables (see supabase/schema.sql).
+      adminIncomeApi.list(),
+      adminExpensesApi.list(),
     ]);
 
     // Every login account is its own worker. The DB trigger creates this row
@@ -72,7 +76,7 @@ function AppShell() {
       allWorkers = [mine, ...workers];
     }
 
-    setData({ companies, packages, logs, payments, workers: allWorkers, workerCosts });
+    setData({ companies, packages, logs, payments, workers: allWorkers, workerCosts, adminIncome, adminExpenses });
     setLoaded(true);
   }, []);
 
@@ -100,6 +104,8 @@ function AppShell() {
   const logsCrud = makeCrud('logs', logsApi);
   const paymentsCrud = makeCrud('payments', paymentsApi);
   const workerCostsCrud = makeCrud('workerCosts', workerCostsApi);
+  const adminIncomeCrud = makeCrud('adminIncome', adminIncomeApi);
+  const adminExpensesCrud = makeCrud('adminExpenses', adminExpensesApi);
 
   async function handleLogout() {
     await signOut();
@@ -176,7 +182,19 @@ function AppShell() {
               onDeletePackage={packagesCrud.remove}
             />
           )}
-          {tab === 'admin' && (isAdmin ? <AdminTab state={data} /> : <div className="panel"><p className="empty">Admin access only.</p></div>)}
+          {tab === 'admin' && (
+            isAdmin ? (
+              <AdminTab
+                state={data}
+                onAddIncome={adminIncomeCrud.add}
+                onDeleteIncome={adminIncomeCrud.remove}
+                onAddExpense={adminExpensesCrud.add}
+                onDeleteExpense={adminExpensesCrud.remove}
+              />
+            ) : (
+              <div className="panel"><p className="empty">Admin access only.</p></div>
+            )
+          )}
         </div>
       </div>
     </div>

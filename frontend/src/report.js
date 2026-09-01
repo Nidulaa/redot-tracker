@@ -147,21 +147,20 @@ export async function downloadCompanyReport({ company, logs, packages, year }) {
   doc.save(filename);
 }
 
-// ---------- Admin monthly report: income, expenses, and every logged task ----------
-export async function downloadMonthlyReport({ monthKey, monthLabel, companies, workers, logs, payments, workerCosts }) {
+// ---------- Admin monthly report: the admin income/expense ledger + every logged task ----------
+export async function downloadMonthlyReport({ monthKey, monthLabel, companies, workers, logs, income, expenses }) {
   const inMonth = (dateStr) => typeof dateStr === 'string' && dateStr.startsWith(monthKey);
 
-  const monthPayments = payments.filter((p) => inMonth(p.date)).sort((a, b) => new Date(a.date) - new Date(b.date));
-  const monthCosts = workerCosts.filter((wc) => inMonth(wc.date)).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const monthIncome = income.filter((r) => inMonth(r.date)).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const monthExpenses = expenses.filter((r) => inMonth(r.date)).sort((a, b) => new Date(a.date) - new Date(b.date));
   const monthLogs = logs.filter((l) => inMonth(l.date)).sort((a, b) => new Date(a.date) - new Date(b.date));
 
   const companyName = (id) => companies.find((c) => c.id === id)?.name || '—';
   const workerName = (id) => workers.find((w) => w.id === id)?.name || '—';
 
-  const incomePaid = monthPayments.filter((p) => p.status === 'paid').reduce((s, p) => s + Number(p.amount), 0);
-  const outstanding = monthPayments.filter((p) => p.status !== 'paid').reduce((s, p) => s + Number(p.amount), 0);
-  const expenses = monthCosts.reduce((s, wc) => s + Number(wc.amount || 0), 0);
-  const net = incomePaid - expenses;
+  const totalIncome = monthIncome.reduce((s, r) => s + Number(r.amount), 0);
+  const totalExpenses = monthExpenses.reduce((s, r) => s + Number(r.amount), 0);
+  const net = totalIncome - totalExpenses;
   const hoursLogged = monthLogs.reduce((s, l) => s + Number(l.minutes), 0);
 
   const { letterheadData, footerData } = await loadLetterheadAssets();
@@ -186,17 +185,16 @@ export async function downloadMonthlyReport({ monthKey, monthLabel, companies, w
 
   const row1Top = titleY + 38;
   drawSummaryBoxes(doc, [
-    { label: 'INCOME (PAID)', value: fmtMoney(incomePaid) },
-    { label: 'EXPENSES', value: fmtMoney(expenses) },
+    { label: 'INCOME', value: fmtMoney(totalIncome) },
+    { label: 'EXPENSES', value: fmtMoney(totalExpenses) },
     { label: 'NET', value: fmtMoney(net), warn: net < 0 },
   ], row1Top, 158, 15);
 
   const row2Top = row1Top + 70;
   drawSummaryBoxes(doc, [
-    { label: 'OUTSTANDING', value: fmtMoney(outstanding), warn: outstanding > 0 },
     { label: 'HOURS LOGGED', value: fmtDuration(hoursLogged) },
     { label: 'TASK ENTRIES', value: String(monthLogs.length) },
-  ], row2Top, 158, 15);
+  ], row2Top, 236, 23);
 
   let y = row2Top + 90;
 
@@ -217,17 +215,17 @@ export async function downloadMonthlyReport({ monthKey, monthLabel, companies, w
   }
 
   // ---- income ----
-  sectionHeading('Income — company payments');
+  sectionHeading('Income');
   autoTable(doc, {
     startY: y,
-    head: [['DATE', 'COMPANY', 'AMOUNT', 'STATUS', 'NOTE']],
-    body: monthPayments.length
-      ? monthPayments.map((p) => [p.date, companyName(p.companyId), fmtMoney(p.amount), p.status, p.note || ''])
-      : [['—', 'No payments recorded this month.', '', '', '']],
+    head: [['DATE', 'NAME', 'DESCRIPTION', 'AMOUNT']],
+    body: monthIncome.length
+      ? monthIncome.map((r) => [r.date, r.name, r.description || '', fmtMoney(r.amount)])
+      : [['—', 'No income recorded this month.', '', '']],
     margin: { left: 50, right: 50, bottom: footerReserve },
     styles: { font: 'helvetica', fontSize: 9, textColor: INK, cellPadding: 6 },
     headStyles: { fillColor: false, textColor: MUTED, fontStyle: 'bold', fontSize: 8, lineWidth: { bottom: 1 }, lineColor: INK },
-    columnStyles: { 0: { cellWidth: 68 }, 2: { cellWidth: 70 }, 3: { cellWidth: 60 } },
+    columnStyles: { 0: { cellWidth: 68 }, 3: { cellWidth: 70 } },
     theme: 'plain',
     didParseCell: (data) => {
       if (data.section === 'body') {
@@ -239,13 +237,13 @@ export async function downloadMonthlyReport({ monthKey, monthLabel, companies, w
   y = doc.lastAutoTable.finalY + 26;
 
   // ---- expenses ----
-  sectionHeading('Expenses — worker payouts');
+  sectionHeading('Expenses');
   autoTable(doc, {
     startY: y,
-    head: [['DATE', 'WORKER', 'COMPANY', 'AMOUNT', 'NOTE']],
-    body: monthCosts.length
-      ? monthCosts.map((wc) => [wc.date, workerName(wc.workerId), wc.companyId ? companyName(wc.companyId) : '—', fmtMoney(wc.amount), wc.note || ''])
-      : [['—', 'No payouts recorded this month.', '', '', '']],
+    head: [['DATE', 'NAME', 'DESCRIPTION', 'AMOUNT']],
+    body: monthExpenses.length
+      ? monthExpenses.map((r) => [r.date, r.name, r.description || '', fmtMoney(r.amount)])
+      : [['—', 'No expenses recorded this month.', '', '']],
     margin: { left: 50, right: 50, bottom: footerReserve },
     styles: { font: 'helvetica', fontSize: 9, textColor: INK, cellPadding: 6 },
     headStyles: { fillColor: false, textColor: MUTED, fontStyle: 'bold', fontSize: 8, lineWidth: { bottom: 1 }, lineColor: INK },

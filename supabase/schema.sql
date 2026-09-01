@@ -124,3 +124,41 @@ select
 from auth.users u
 left join public.workers w on w."userId" = u.id
 where w.id is null;
+
+-- ---------- admin income/expense ledger ----------
+-- Separate from `payments` (client billing) and `worker_costs` (worker
+-- payouts): a general business ledger the admin fills in by hand, only
+-- visible/editable from the Admin Report tab. Genuinely restricted at the
+-- database level (unlike every other table above) to the email(s) listed
+-- here — keep this list in sync with ADMIN_EMAILS in frontend/src/config.js.
+create table if not exists admin_income (
+  id uuid primary key default gen_random_uuid(),
+  date date not null,
+  name text not null,
+  description text,
+  amount numeric not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists admin_expenses (
+  id uuid primary key default gen_random_uuid(),
+  date date not null,
+  name text not null,
+  description text,
+  amount numeric not null,
+  created_at timestamptz not null default now()
+);
+
+alter table admin_income enable row level security;
+alter table admin_expenses enable row level security;
+
+drop policy if exists "admin only" on admin_income;
+drop policy if exists "admin only" on admin_expenses;
+
+create policy "admin only" on admin_income for all to authenticated
+  using (auth.jwt() ->> 'email' = any (array['nidulalokuge@gmail.com']))
+  with check (auth.jwt() ->> 'email' = any (array['nidulalokuge@gmail.com']));
+
+create policy "admin only" on admin_expenses for all to authenticated
+  using (auth.jwt() ->> 'email' = any (array['nidulalokuge@gmail.com']))
+  with check (auth.jwt() ->> 'email' = any (array['nidulalokuge@gmail.com']));
